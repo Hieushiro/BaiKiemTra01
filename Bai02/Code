@@ -1,0 +1,310 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace AutoSpeedLogistics
+{
+    public abstract class PhuongTien
+    {
+        private string _maPT = "PT000";
+        public string MaPT
+        {
+            get => _maPT;
+            set => _maPT = string.IsNullOrWhiteSpace(value) ? "PT000" : value.Trim();
+        }
+
+        private string _tenHang = string.Empty;
+        public string TenHang
+        {
+            get => _tenHang;
+            set => _tenHang = string.IsNullOrWhiteSpace(value) ? throw new ArgumentException("Loi ten hang") : value;
+        }
+
+        private int _namSanXuat;
+        public int NamSanXuat
+        {
+            get => _namSanXuat;
+            set => _namSanXuat = (value >= 1900 && value <= DateTime.Now.Year) ? value : throw new ArgumentException("Nam san xuat khong hop le!");
+        }
+
+        private decimal _giaGoc;
+        public decimal GiaGoc
+        {
+            get => _giaGoc;
+            set => _giaGoc = value > 0 ? value : throw new ArgumentException("Loi gia goc");
+        }
+
+        protected PhuongTien(string maPT, string tenHang, int namSanXuat, decimal giaGoc)
+        {
+            MaPT = maPT;
+            TenHang = tenHang;
+            NamSanXuat = namSanXuat;
+            GiaGoc = giaGoc;
+        }
+
+        public abstract decimal TinhGiaLanBanh();
+
+        public virtual string GetInfo()
+        {
+            return "Ma PT: " + MaPT + " | Hang: " + TenHang + " | Nam SX: " + NamSanXuat + " | Gia goc: " + GiaGoc.ToString("N0") + " VND";
+        }
+    }
+
+    public class OTo : PhuongTien
+    {
+        public int SoChoNgoi { get; set; }
+        public double DungTichDongCo { get; set; }
+
+        public OTo(string maPT, string tenHang, int namSanXuat, decimal giaGoc, int soChoNgoi, double dungTichDongCo)
+            : base(maPT, tenHang, namSanXuat, giaGoc)
+        {
+            SoChoNgoi = soChoNgoi;
+            DungTichDongCo = dungTichDongCo;
+        }
+
+        public override decimal TinhGiaLanBanh()
+        {
+            if (SoChoNgoi <= 9)
+            {
+                return GiaGoc + (0.12m * GiaGoc) + (0.30m * GiaGoc);
+            }
+            else
+            {
+                return GiaGoc + (0.10m * GiaGoc);
+            }
+        }
+
+        public override string GetInfo()
+        {
+            return base.GetInfo() + " | So cho: " + SoChoNgoi + " | Dong co: " + DungTichDongCo + "L | Lan banh: " + TinhGiaLanBanh().ToString("N0") + " VND";
+        }
+    }
+
+    public class XeMay : PhuongTien
+    {
+        public int DungTichXylanh { get; set; }
+
+        public XeMay(string maPT, string tenHang, int namSanXuat, decimal giaGoc, int dungTichXylanh)
+            : base(maPT, tenHang, namSanXuat, giaGoc)
+        {
+            DungTichXylanh = dungTichXylanh;
+        }
+
+        public override decimal TinhGiaLanBanh()
+        {
+            if (DungTichXylanh < 175)
+            {
+                return GiaGoc + (0.02m * GiaGoc);
+            }
+            else
+            {
+                return GiaGoc + (0.05m * GiaGoc);
+            }
+        }
+
+        public override string GetInfo()
+        {
+            return base.GetInfo() + " | Xi lanh: " + DungTichXylanh + "cc | Lan banh: " + TinhGiaLanBanh().ToString("N0") + " VND";
+        }
+    }
+
+    public class QuanLyPhuongTien
+    {
+        private List<PhuongTien> danhSach = new List<PhuongTien>();
+
+        public void AddPhuongTien(PhuongTien pt)
+        {
+            danhSach.Add(pt);
+        }
+
+        public void DisplayAll()
+        {
+            Console.WriteLine("\n--- DANH SACH PHUONG TIEN ---");
+            if (danhSach.Count == 0)
+            {
+                Console.WriteLine("Danh sach trong!");
+                return;
+            }
+            foreach (var pt in danhSach)
+            {
+                Console.WriteLine(pt.GetInfo());
+            }
+        }
+
+        public PhuongTien? FindMaxGiaLanBanh()
+        {
+            if (danhSach.Count == 0) return null;
+
+            PhuongTien maxPt = danhSach[0];
+            foreach (var pt in danhSach)
+            {
+                if (pt.TinhGiaLanBanh() > maxPt.TinhGiaLanBanh())
+                {
+                    maxPt = pt;
+                }
+            }
+            return maxPt;
+        }
+
+        public List<PhuongTien> SearchByName(string keyword)
+        {
+            return danhSach.Where(p => p.TenHang.Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+    }
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+            QuanLyPhuongTien manager = new QuanLyPhuongTien();
+
+            bool chay = true;
+            while (chay)
+            {
+                Console.WriteLine("\n==============================================");
+                Console.WriteLine("    HE THONG QUAN LY PHUONG TIEN - AUTOSPEED  ");
+                Console.WriteLine("==============================================\n");
+                Console.WriteLine("1. Chay tu dong Test Cases (TC01 - TC05)");
+                Console.WriteLine("2. Nhap oto moi tu ban phim");
+                Console.WriteLine("3. Nhap xe may moi tu ban phim");
+                Console.WriteLine("4. Hien thi danh sach");
+                Console.WriteLine("5. Tim xe co gia lan banh max");
+                Console.WriteLine("6. Tim kiem theo ten hang");
+                Console.WriteLine("7. Thoat");
+                Console.Write("Chon chuc nang (1-7): ");
+
+                string chon = Console.ReadLine() ?? "";
+                Console.WriteLine();
+
+                switch (chon)
+                {
+                    case "1":
+                        Console.WriteLine("=== CHAY KICH BAN KIEM THU (TC01 - TC05) ===");
+
+                        Console.WriteLine("\n[TC01] Kiem tra Validation Nam san xuat (Nam = 1850):");
+                        try
+                        {
+                            OTo otoLoi = new OTo("OT_ERR", "Toyota", 1850, 500000000m, 5, 1.5);
+                        }
+                        catch (ArgumentException ex)
+                        {
+                            Console.WriteLine("-> KET QUA: He thong nem ngoai le thanh cong! Loi: \"" + ex.Message + "\"");
+                        }
+
+                        OTo oto5Cho = new OTo("OT01", "Toyota", 2023, 1000000000m, 5, 1.5);
+                        XeMay xeMay150 = new XeMay("XM01", "Honda", 2023, 50000000m, 150);
+
+                        QuanLyPhuongTien testManager = new QuanLyPhuongTien();
+                        testManager.AddPhuongTien(oto5Cho);
+                        testManager.AddPhuongTien(xeMay150);
+
+                        Console.WriteLine("\n[TC02, TC03, TC04] Kiem tra Tinh gia va Da hinh List<PhuongTien>:");
+                        testManager.DisplayAll();
+
+                        Console.WriteLine("\n[TC05] Kiem tra Tim Gia Lan Banh Max:");
+                        PhuongTien? maxPt = testManager.FindMaxGiaLanBanh();
+                        if (maxPt != null)
+                        {
+                            Console.WriteLine("-> KET QUA: Xe co gia cao nhat: " + maxPt.GetInfo());
+                        }
+                        break;
+
+                    case "2":
+                        try
+                        {
+                            Console.Write("Nhap ma PT: ");
+                            string ma = Console.ReadLine() ?? "";
+                            Console.Write("Nhap ten hang: ");
+                            string hang = Console.ReadLine() ?? "";
+                            Console.Write("Nhap nam san xuat: ");
+                            int nam = int.Parse(Console.ReadLine() ?? "2023");
+                            Console.Write("Nhap gia goc: ");
+                            decimal gia = decimal.Parse(Console.ReadLine() ?? "0");
+                            Console.Write("Nhap so cho ngoi: ");
+                            int soCho = int.Parse(Console.ReadLine() ?? "4");
+                            Console.Write("Nhap dung tich dong co: ");
+                            double dongCo = double.Parse(Console.ReadLine() ?? "1.0");
+
+                            OTo ot = new OTo(ma, hang, nam, gia, soCho, dongCo);
+                            manager.AddPhuongTien(ot);
+                            Console.WriteLine("-> Them o to thanh cong! Gia lan banh: " + ot.TinhGiaLanBanh().ToString("N0") + " VND");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("-> Loi nhap lieu: " + ex.Message);
+                        }
+                        break;
+
+                    case "3":
+                        try
+                        {
+                            Console.Write("Nhap ma PT: ");
+                            string ma = Console.ReadLine() ?? "";
+                            Console.Write("Nhap ten hang: ");
+                            string hang = Console.ReadLine() ?? "";
+                            Console.Write("Nhap nam san xuat: ");
+                            int nam = int.Parse(Console.ReadLine() ?? "2023");
+                            Console.Write("Nhap gia goc: ");
+                            decimal gia = decimal.Parse(Console.ReadLine() ?? "0");
+                            Console.Write("Nhap dung tich xylanh (cc): ");
+                            int xylanh = int.Parse(Console.ReadLine() ?? "100");
+
+                            XeMay xm = new XeMay(ma, hang, nam, gia, xylanh);
+                            manager.AddPhuongTien(xm);
+                            Console.WriteLine("-> Them xe may thanh cong! Gia lan banh: " + xm.TinhGiaLanBanh().ToString("N0") + " VND");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("-> Loi nhap lieu: " + ex.Message);
+                        }
+                        break;
+
+                    case "4":
+                        manager.DisplayAll();
+                        break;
+
+                    case "5":
+                        PhuongTien? foundMax = manager.FindMaxGiaLanBanh();
+                        if (foundMax != null)
+                        {
+                            Console.WriteLine("-> Xe co gia lan banh cao nhat: " + foundMax.GetInfo());
+                        }
+                        else
+                        {
+                            Console.WriteLine("-> Danh sach trong!");
+                        }
+                        break;
+
+                    case "6":
+                        Console.Write("Nhap ten hang can tim: ");
+                        string keyword = Console.ReadLine() ?? "";
+                        var ketQua = manager.SearchByName(keyword);
+                        Console.WriteLine("\n--- KET QUA TIM KIEM ---");
+                        if (ketQua.Count == 0)
+                        {
+                            Console.WriteLine("Khong tim thay phuong tien nao!");
+                        }
+                        else
+                        {
+                            foreach (var item in ketQua)
+                            {
+                                Console.WriteLine(item.GetInfo());
+                            }
+                        }
+                        break;
+
+                    case "7":
+                        chay = false;
+                        Console.WriteLine("Tam biet!");
+                        break;
+
+                    default:
+                        Console.WriteLine("Lua chon khong hop le!");
+                        break;
+                }
+            }
+        }
+    }
+}
+

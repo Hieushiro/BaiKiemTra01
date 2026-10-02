@@ -1,3 +1,4 @@
+/////
 using System;
 
 namespace baikt1
@@ -24,5 +25,233 @@ namespace baikt1
             Quantity = qty;
             ImagePath = imgPath;
         }
+    }
+}
+//////
+using baikt1;
+using System;
+using System.ComponentModel;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Windows.Forms;
+
+namespace baikt1
+{
+    public partial class Form1 : Form
+    {
+        // Sử dụng BindingList để DataGridView tự động đồng bộ khi thêm/sửa/xóa
+        private BindingList<Product> originalList = new BindingList<Product>();
+        private BindingSource bindingSource = new BindingSource();
+
+        public Form1()
+        {
+            InitializeComponent();
+            SetupData();
+        }
+
+        private void SetupData()
+        {
+            // 1. Nạp dữ liệu cho ComboBox Danh mục
+            var categories = new[] {
+                new { Value = "CAT01", Display = "Điện thoại" },
+                new { Value = "CAT02", Display = "Laptop" },
+                new { Value = "CAT03", Display = "Phụ kiện" }
+            };
+            cboCategory.DataSource = categories;
+            cboCategory.ValueMember = "Value";
+            cboCategory.DisplayMember = "Display";
+
+            // 2. Thêm dữ liệu mẫu ban đầu
+            originalList.Add(new Product("SP001", "iPhone 15 Pro Max", "CAT01", "Điện thoại", 30000000, 15, ""));
+            originalList.Add(new Product("SP002", "MacBook Pro M3", "CAT02", "Laptop", 45000000, 8, ""));
+            originalList.Add(new Product("SP003", "Tai nghe AirPods Pro", "CAT03", "Phụ kiện", 5500000, 30, ""));
+
+            // 3. Gán BindingSource kết nối dữ liệu với DataGridView
+            bindingSource.DataSource = originalList;
+            dgvProducts.DataSource = bindingSource;
+
+            UpdateStatus();
+        }
+
+        // Cập nhật trạng thái tổng số sản phẩm dưới đáy Form
+        private void UpdateStatus()
+        {
+            lblStatus.Text = $"Tổng số sản phẩm: {originalList.Count}";
+        }
+
+        // Click chọn 1 dòng trên DataGridView -> Dữ liệu tự nạp ngược lên các ô nhập liệu
+        private void dgvProducts_SelectionChanged(object sender, EventArgs e)
+        {
+            if (dgvProducts.CurrentRow != null && dgvProducts.CurrentRow.DataBoundItem is Product selectedProduct)
+            {
+                txtProductId.Text = selectedProduct.ProductId;
+                txtProductName.Text = selectedProduct.ProductName;
+                txtUnitPrice.Text = selectedProduct.UnitPrice.ToString("G0");
+                txtQuantity.Text = selectedProduct.Quantity.ToString();
+                cboCategory.SelectedValue = selectedProduct.CategoryId;
+
+                if (!string.IsNullOrEmpty(selectedProduct.ImagePath) && File.Exists(selectedProduct.ImagePath))
+                    picAvatar.ImageLocation = selectedProduct.ImagePath;
+                else
+                    picAvatar.Image = null;
+            }
+        }
+
+        // Chọn hình ảnh sản phẩm
+        private void btnChooseImage_Click(object sender, EventArgs e)
+        {
+            using (OpenFileDialog ofd = new OpenFileDialog())
+            {
+                ofd.Filter = "Image Files|*.jpg;*.jpeg;*.png;*.gif;*.bmp";
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    picAvatar.ImageLocation = ofd.FileName;
+                }
+            }
+        }
+
+        // Hàm kiểm tra tính hợp lệ của dữ liệu (ErrorProvider)
+        private bool ValidateForm()
+        {
+            bool isValid = true;
+            errorProvider1.Clear();
+
+            if (string.IsNullOrWhiteSpace(txtProductName.Text))
+            {
+                errorProvider1.SetError(txtProductName, "Tên sản phẩm không được để trống!");
+                isValid = false;
+            }
+
+            if (!decimal.TryParse(txtUnitPrice.Text, out decimal price) || price <= 0)
+            {
+                errorProvider1.SetError(txtUnitPrice, "Đơn giá phải là số lớn hơn 0!");
+                isValid = false;
+            }
+
+            if (!int.TryParse(txtQuantity.Text, out int qty) || qty < 0)
+            {
+                errorProvider1.SetError(txtQuantity, "Số lượng phải là số nguyên lớn hơn hoặc bằng 0!");
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
+        // Nút Thêm Mới
+        private void btnAdd_Click(object sender, EventArgs e)
+        {
+            if (!ValidateForm()) return;
+
+            if (originalList.Any(p => p.ProductId.Trim().ToLower() == txtProductId.Text.Trim().ToLower()))
+            {
+                MessageBox.Show("Mã sản phẩm đã tồn tại!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var newProd = new Product(
+                txtProductId.Text.Trim(),
+                txtProductName.Text.Trim(),
+                cboCategory.SelectedValue.ToString(),
+                cboCategory.Text,
+                decimal.Parse(txtUnitPrice.Text),
+                int.Parse(txtQuantity.Text),
+                picAvatar.ImageLocation
+            );
+
+            originalList.Add(newProd);
+            bindingSource.ResetBindings(false);
+            UpdateStatus();
+            MessageBox.Show("Thêm mới sản phẩm thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        // Nút Cập Nhật
+        private void btnUpdate_Click(object sender, EventArgs e)
+        {
+            if (dgvProducts.CurrentRow == null) return;
+            if (!ValidateForm()) return;
+
+            var currentProd = (Product)dgvProducts.CurrentRow.DataBoundItem;
+
+            currentProd.ProductName = txtProductName.Text.Trim();
+            currentProd.CategoryId = cboCategory.SelectedValue.ToString();
+            currentProd.CategoryName = cboCategory.Text;
+            currentProd.UnitPrice = decimal.Parse(txtUnitPrice.Text);
+            currentProd.Quantity = int.Parse(txtQuantity.Text);
+            currentProd.ImagePath = picAvatar.ImageLocation;
+
+            bindingSource.ResetBindings(false);
+            dgvProducts.Refresh();
+            MessageBox.Show("Cập nhật thông tin thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        // Nút Xóa có Dialog xác nhận Yes/No
+        private void btnDelete_Click(object sender, EventArgs e)
+        {
+            if (dgvProducts.CurrentRow == null) return;
+
+            var currentProd = (Product)dgvProducts.CurrentRow.DataBoundItem;
+
+            var result = MessageBox.Show($"Bạn có chắc chắn muốn xóa sản phẩm [{currentProd.ProductName}] không?",
+                "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+            if (result == DialogResult.Yes)
+            {
+                originalList.Remove(currentProd);
+                bindingSource.ResetBindings(false);
+                UpdateStatus();
+                MessageBox.Show("Xóa sản phẩm thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        // Ô Tìm Kiếm theo tên sản phẩm - Thời gian thực (Live Search TextChanged)
+        private void txtSearch_TextChanged(object sender, EventArgs e)
+        {
+            string keyword = txtSearch.Text.Trim().ToLower();
+            if (string.IsNullOrEmpty(keyword))
+            {
+                bindingSource.DataSource = originalList;
+            }
+            else
+            {
+                var filtered = originalList.Where(p => p.ProductName.ToLower().Contains(keyword)).ToList();
+                bindingSource.DataSource = new BindingList<Product>(filtered);
+            }
+        }
+
+        // Chức năng xuất dữ liệu ra file CSV
+        private void ExportToCSV()
+        {
+            using (SaveFileDialog sfd = new SaveFileDialog())
+            {
+                sfd.Filter = "CSV files (*.csv)|*.csv";
+                sfd.FileName = "TechMart_Products_Export.csv";
+                if (sfd.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        StringBuilder sb = new StringBuilder();
+                        // Ghi dòng tiêu đề cột
+                        sb.AppendLine("Ma SP,Ten SP,Danh Muc,Don Gia,So Luong");
+
+                        foreach (var prod in originalList)
+                        {
+                            sb.AppendLine($"\"{prod.ProductId}\",\"{prod.ProductName}\",\"{prod.CategoryName}\",{prod.UnitPrice},{prod.Quantity}");
+                        }
+
+                        File.WriteAllText(sfd.FileName, sb.ToString(), Encoding.UTF8);
+                        MessageBox.Show("Xuất file CSV thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Lỗi khi xuất file: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
+        private void exportCSVToolStripMenuItem_Click(object sender, EventArgs e) => ExportToCSV();
+        private void btnExport_Click(object sender, EventArgs e) => ExportToCSV();
+        private void exitToolStripMenuItem_Click(object sender, EventArgs e) => Application.Exit();
     }
 }
